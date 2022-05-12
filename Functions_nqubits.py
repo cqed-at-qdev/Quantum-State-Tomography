@@ -1,12 +1,11 @@
 import numpy as np
-import qutip
 from qutip import *
 from scipy.optimize import minimize
 import settings
 #---------------------------------------------------------------------#
 #-------------------------------Functions-----------------------------#
 #---------------------------------------------------------------------# 
-def MLE_QST(measurments, Paulis, n, datafile):
+def MLE_QST(measurments, Paulis, n):
     """Takes the measured values, Paulis and number of qbits to calculate the most likely t.
        Here t is the cholesky decomposed matrix of the density matrix.
 
@@ -20,14 +19,12 @@ def MLE_QST(measurments, Paulis, n, datafile):
     """
     # Initial guess for the MLE.
     t_tunable = np.ones(int(4**n))/4**n
-    # Takes a initial frame for animation.
     rho_check = op_cholesky(t_tunable)
-    rho_check = Qobj(rho_check)
-    settings.rho_anim_list.append(rho_check)
+    rho_check = Qobj(rho_check,dims=[[2]*n,[2]*n])
+    settings.rho_MLE.append(rho_check)
     # Calculates a initial trace distance between start guess and true rho.
-    settings.rho_basic = (0.5 * (qeye(2)+datafile[0]*sigmax()+datafile[1]*sigmay()+datafile[2]*sigmaz()))
-    d = tracedist(settings.rho_true, rho_check)
-    settings.tracedist_list.append(d)
+    #d = tracedist(settings.rho_true, rho_check)
+    #settings.tracedist_list.append(d)
 
     consts = ({'type': 'eq',
                'method': 'BFGS',
@@ -37,7 +34,7 @@ def MLE_QST(measurments, Paulis, n, datafile):
                         args=(measurments,Paulis),
                         constraints=consts,
                         method='SLSQP', 
-                        tol=1e-15,callback = callbackF, options={'disp': True})
+                        tol=1e-5, callback=callbackF,options={'disp': False})
     result = result['x']
     return result
 
@@ -49,11 +46,12 @@ def callbackF(t_tunable):
         t_tunable ([array]): The current MLE guess.
     """
     rho_MLE = op_cholesky(t_tunable)
-    rho_MLE = Qobj(rho_MLE)
-    settings.rho_anim_list.append(rho_MLE)
-    d = tracedist(settings.rho_true, rho_MLE)
+    rho_MLE = Qobj(rho_MLE,dims=[[2]*(int(np.log2(len(t_tunable))/2)),[2]*(int(np.log2(len(t_tunable))/2))])
+    """d = tracedist(settings.rho_true, rho_MLE)
+    print(d)
     settings.tracedist_list.append(d)
-    settings.Nfeval += 1
+    settings.Nfeval += 1"""
+    settings.rho_MLE.append(rho_MLE)
 
 # Keeps the trace of t physical
 def Trace1constraint(t_tunable):
@@ -73,14 +71,14 @@ def MLE_Function_QST(t_tunable, measurments, Paulis):
 
     Args:
         t_tunable ([array]): The current MLE guess.
-        measurments ([list]): Takes a list of the three expectation values of the state.
-        Paulis ([list]): Takes the three pauli matrices as input.
+        measurments ([list]): List of expectation values for the state.
+        Paulis ([list]): List of the POVM (Pauli matrices in this case).
 
     Returns:
-        [float]: MLE guess.
+        L ([float]): Likelihood value
     """
     rho = op_cholesky(t_tunable)
-    expect = np.einsum('ij,ljk',rho,Paulis)  # perform matrix multiplication over list of paulis
+    expect = np.einsum('ij,ljk',rho,Paulis)  # perform matrix multiplication over array of paulis
     tr_expect = np.einsum('iij', expect).real # take the real component of the trace
 
     L = np.sum((measurments-tr_expect)**2)

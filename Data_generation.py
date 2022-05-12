@@ -1,12 +1,13 @@
-#%%
 import numpy as np
 import qutip
 from qutip import *
+import settings as s
 class Datagen():
     """Datageneration class takes a, b values as input and creates a quantum state. 
        It then "measures" n shots and calculates the expected sigma x,y and z values, which can be used for QST.
     """
-    def __init__(self, a, b, n_shots, base=['x','y','z']):
+    def __init__(self, n_shots, a, b, theta=0, phi=0):
+    
         """Initializes the datageneration class.
 
         Args:
@@ -17,9 +18,12 @@ class Datagen():
         """
         self.a = a
         self.b = b
-        self.base = base
         self.shots = n_shots
-
+        self.theta = theta
+        self.phi = phi
+        self.rho_true = self.get_density()
+        s.rho_true = self.get_density()
+                
     def get_basis(self, base_index):
         """Generates a basis to measure in.
 
@@ -38,9 +42,9 @@ class Datagen():
         if base_index=='z':
             basis0 = (basis(2,0))/(basis(2,0)).norm()
             basis1 = (basis(2,1))/(basis(2,1)).norm()
-        else:
-            # Here some code will be written which can generate any wacky basis.
-            pass
+        if base_index=='r':
+            basis0 = (np.cos(self.theta/2)*basis(2,0))
+            basis1 = (np.exp(1j*self.phi)*np.cos(self.theta/2)*basis(2,1))
 
         # Projectors
         proj0 = basis0*basis0.conj().trans()
@@ -54,7 +58,7 @@ class Datagen():
         Returns:
             [Qobj/array]: Density matrix to generate data from.
         """
-        basis0, basis1, proj1, proj2 = self.get_basis('z')
+        basis0, basis1, proj1, proj2 = self.get_basis('r')
         psi = (self.a*basis0+self.b*basis1)/(self.a*basis0+self.b*basis1).norm()
         psi_com_con = psi.conj().trans()
         rho_true = psi*psi_com_con
@@ -70,10 +74,9 @@ class Datagen():
             [float]: Expectation value in given basis.
         """
         base0, base1, proj0, proj1 = self.get_basis(base_index)
-        rho = self.get_density()
-        P0 = (proj0*rho).tr()
-        P1 = (proj1*rho).tr()
-        measurment_list = np.random.choice([0,1], self.shots, p=[P0,P1])
+        P0 = (proj0*self.rho_true).tr()
+        P1 = (proj1*self.rho_true).tr()
+        measurment_list = np.random.choice([1,-1], self.shots, p=[P0,P1])
         sig_expect = np.mean(measurment_list)
         return sig_expect
 
@@ -83,6 +86,7 @@ class Datagen():
         Returns:
             [list]: Returns a datafile with expectation values in the chosen basis.
         """
+        self.base=['x','y','z']
         sigx = self.sig_expect(self.base[0])
         sigy = self.sig_expect(self.base[1])
         sigz = self.sig_expect(self.base[2])

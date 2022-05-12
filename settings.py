@@ -9,3 +9,5 @@ def init():
     Nfeval = 1
     global rho_true
     rho_true = 0
+    global rho_MLE
+    rho_MLE = []

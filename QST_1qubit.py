@@ -1,14 +1,12 @@
-#%%
 import numpy as np
 import qutip
 from qutip import *
-import settings
 import Functions as f
+import settings as s
 class QStateTomo():
     """Class that implements 1 qubit Quantum State Tomography
     """
     def __init__(self, datafile, Paulis, nqubits=1):
-        settings.init()
         """Initzialise function of the QST class.
 
         Args:
@@ -19,7 +17,9 @@ class QStateTomo():
         self.datafile = datafile
         self.Paulis = Paulis
         self.nqubits = nqubits
-    # Function will get QST guess of rho
+        s.rho_anim_list = []
+        
+        
     def getRho(self):
         """Function that estimates the density matrix rho using MLE.
 
