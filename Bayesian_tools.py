@@ -4,7 +4,7 @@ from re import S, X
 import numpy as np
 from scipy.stats import truncnorm, norm
 from qutip import *
-def sample_thetha_cand(dim, thetha, deviation, edge_set):
+def sample_thetha_cand(dim, thetha, deviation):
     """Samples the new theta vector from i truncated normal distributions.
 
     Args:
@@ -15,25 +15,16 @@ def sample_thetha_cand(dim, thetha, deviation, edge_set):
     Returns:
         thetha_cand ([list]): a list of the new proposed theta vector.
     """
-    if isinstance(edge_set, int) == False:
-        thetha_cand = []
-        for i in range(len(thetha)):
-            # Select the interval to truncate the normal distribution in.
-            a, b = (edge_set[i,0]-thetha[i])/deviation, (edge_set[i,1]-thetha[i])/deviation
-            # Sample new theta
-            thetha_cand_i = truncnorm.rvs(a,b, loc=thetha[i], scale=deviation)
-            thetha_cand.append(thetha_cand_i)
-    else:
-        thetha_cand = []
-        for i in range(len(thetha)):
-            # Select the interval to truncate the normal distribution in.
-            if 1 <= (i+1) <= dim-1:
-                a,b = (0-thetha[i])/deviation, (np.pi/2-thetha[i])/deviation
-            elif dim <= (i+1) <= (dim**2)-1:
-                a,b = (0-thetha[i])/deviation, (np.pi-thetha[i])/deviation
-            # Sample new theta
-            thetha_cand_i = truncnorm.rvs(a,b, loc=thetha[i], scale=deviation)
-            thetha_cand.append(thetha_cand_i)
+    thetha_cand = []
+    for i in range(len(thetha)):
+        # Select the interval to truncate the normal distribution in.
+        if 1 <= (i+1) <= dim-1:
+            a,b = (0-thetha[i])/deviation, (np.pi/2-thetha[i])/deviation
+        elif dim <= (i+1) <= (dim**2)-1:
+            a,b = (0-thetha[i])/deviation, (np.pi-thetha[i])/deviation
+        # Sample new theta
+        thetha_cand_i = truncnorm.rvs(a,b, loc=thetha[i], scale=deviation)
+        thetha_cand.append(thetha_cand_i)
     return thetha_cand
 
 def accept_crit(thetha, thetha_cand, joint_posterior, proposal_ratio, accept_count):
@@ -156,8 +147,8 @@ def calculate_joint_posterior_ratio(thetha, thetha_cand, dim, povm, n_count):
     t_old = construct_t(thetha_copy, dim)
     t_new = construct_t(thetha_cand_copy, dim)
     # In turn construct the corresponding density matrices
-    rho_old = Qobj(op_cholesky(t_old))
-    rho_new = Qobj(op_cholesky(t_new))
+    rho_old = Qobj(op_cholesky(t_old), dims=[[2]*int(np.log2(dim)),[2]*int(np.log2(dim))])
+    rho_new = Qobj(op_cholesky(t_new), dims=[[2]*int(np.log2(dim)),[2]*int(np.log2(dim))])
     # Calculate the probabilities of the density matrix given all POVM
     p_old = [(rho_old*j).tr().real for j in povm]
     p_new = [(rho_new*j).tr().real for j in povm]
@@ -170,7 +161,7 @@ def calculate_joint_posterior_ratio(thetha, thetha_cand, dim, povm, n_count):
 
     return joint_posterior
 
-def calculate_ratio_proposal(thetha, thetha_cand, dim, deviation, edge_set):
+def calculate_ratio_proposal(thetha, thetha_cand, dim, deviation):
     """Calculate the proposal ratio.
 
     Args:
@@ -184,14 +175,11 @@ def calculate_ratio_proposal(thetha, thetha_cand, dim, deviation, edge_set):
     """
     ratio_list = []
     for i in range(len(thetha)):
-        if isinstance(edge_set, int) == False:
-            a, b = edge_set[i,0], edge_set[i,1]
-        else:
-            # Choose the limits of the distributions
-            if 1 <= (i+1) <= dim-1:
-                a,b = 0, np.pi/2
-            elif dim <= (i+1) <= (dim**2)-1:
-                a,b = 0, np.pi
+        # Choose the limits of the distributions
+        if 1 <= (i+1) <= dim-1:
+            a,b = 0, np.pi/2
+        elif dim <= (i+1) <= (dim**2)-1:
+            a,b = 0, np.pi
         # Calculate the four cumulative density functions
 
         old_cdf_a = norm.cdf((a-thetha[i])/deviation, loc=thetha[i], scale=deviation)

@@ -2,6 +2,7 @@ import numpy as np
 from qutip import *
 from scipy.optimize import minimize
 import settings
+import pandas as pd
 #---------------------------------------------------------------------#
 #-------------------------------Functions-----------------------------#
 #---------------------------------------------------------------------# 
@@ -19,9 +20,9 @@ def MLE_QST(measurments, Paulis, n):
     """
     # Initial guess for the MLE.
     t_tunable = np.ones(int(4**n))/4**n
-    rho_check = op_cholesky(t_tunable)
-    rho_check = Qobj(rho_check,dims=[[2]*n,[2]*n])
-    settings.rho_MLE.append(rho_check)
+   # rho_check = op_cholesky(t_tunable)
+    #rho_check = Qobj(rho_check,dims=[[2]*n,[2]*n])
+    #settings.rho_MLE.append(rho_check)
     # Calculates a initial trace distance between start guess and true rho.
     #d = tracedist(settings.rho_true, rho_check)
     #settings.tracedist_list.append(d)
@@ -45,13 +46,13 @@ def callbackF(t_tunable):
     Args:
         t_tunable ([array]): The current MLE guess.
     """
-    rho_MLE = op_cholesky(t_tunable)
-    rho_MLE = Qobj(rho_MLE,dims=[[2]*(int(np.log2(len(t_tunable))/2)),[2]*(int(np.log2(len(t_tunable))/2))])
+   # rho_MLE = op_cholesky(t_tunable)
+    #rho_MLE = Qobj(rho_MLE,dims=[[2]*(int(np.log2(len(t_tunable))/2)),[2]*(int(np.log2(len(t_tunable))/2))])
     """d = tracedist(settings.rho_true, rho_MLE)
     print(d)
     settings.tracedist_list.append(d)
     settings.Nfeval += 1"""
-    settings.rho_MLE.append(rho_MLE)
+   # settings.rho_MLE.append(rho_MLE)
 
 # Keeps the trace of t physical
 def Trace1constraint(t_tunable):
@@ -120,3 +121,54 @@ def get_rho_true(a,b):
     psi_com_con = psi.conj().trans()
     rho_true = psi*psi_com_con
     return rho_true
+
+def pauli_calculator(nqubits):
+        """Takes the row from the datasim_keylist corresponding to n qubits
+        and converts it to a set of pauli matrices, which get tensored.
+        Ex. if the current key is 'x2x3' it turns into 'tensor(I,sig_x,sig_x).
+
+        Returns:
+            Paulis: ([list]): returns list of pauli tensor products
+        """
+        # Read pickle file into dataframed
+        df1 = pd.read_pickle("datasim_keylist.pkl")
+        # Remove any None values and grab the correct row
+        expect_key = list(filter(None, df1.values[nqubits-1]))
+        # Remove duplicates
+        expect_key = list(dict.fromkeys(expect_key))
+        paulis = [qeye([2]*nqubits)]
+        # Loop through every key in the list 
+        for key in expect_key:
+            tup_list = []
+            num_array= np.zeros(nqubits)
+            # Loop through every substring of the key and append the correct paulis 
+            # to the tup_list
+            for value in key:
+                if 'x' in value:
+                    tup_list.append(sigmax())
+                if 'y' in value:
+                    tup_list.append(sigmay())
+                if 'z' in value:
+                    tup_list.append(sigmaz())
+                # If string is a number, append it to the predefined num_array
+                # to the correct spot
+                if value != 'x':
+                    if value != 'y':
+                        if value != 'z':
+                            num_array[int(value)-1] = value
+                else:
+                    pass
+            # If tup_list is nqubits long then all is good
+            if len(tup_list)==nqubits:
+                pauli_set = tensor(tup_list)
+                paulis.append(pauli_set)
+            # Otherwise insert identities in the correct positions.
+            else:
+                for i,x in enumerate(num_array):
+                    if x==0:
+                        tup_list.insert(i,qeye(2))
+                    else:
+                        pass
+                pauli_set = tensor(tup_list)
+                paulis.append(pauli_set)
+        return paulis

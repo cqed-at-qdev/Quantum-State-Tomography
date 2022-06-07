@@ -1,11 +1,11 @@
-#%%
 import numpy as np
 from qutip import *
 import pandas as pd
 import LI_tools as li
+from Data_sim import DataSimNqubit
 class LinearInversion():
 
-    def __init__(self, nqubits, expectation, explicit=True, expect_key=0):
+    def __init__(self, nqubits, expectation, explicit=True, expect_key=0, paulis=0):
         """Initializes linear inversion tomography. Calculates the density matrix by finding the dot product between the
         the measured expectation values and the corresponding pauli matrix vector.
 
@@ -26,12 +26,13 @@ class LinearInversion():
             self.df1 = pd.read_pickle("datasim_keylist.pkl")
             # Remove any None values and grab the correct row
             expect_key = list(filter(None, self.df1.values.tolist()[self.nqubits-1]))
+            self.expect_key = list(dict.fromkeys(expect_key))
+            self.paulis = li.pauli_calculator(self.nqubits, self.expect_key)
         else:
-            pass
+            self.paulis = paulis
+
 
         # Remove duplicates
-        self.expect_key = list(dict.fromkeys(expect_key))
-        self.paulis = li.pauli_calculator(self.nqubits, self.expect_key)
 
     def get_lin_inv_rho(self):
         """Calculates the linear inverted density matrix.
