@@ -3,6 +3,7 @@ from qutip import *
 import pandas as pd
 import LI_tools as li
 from Data_sim import DataSimNqubit
+import pickle5 as pickle
 class LinearInversion():
 
     def __init__(self, nqubits, expectation, explicit=True, expect_key=0, paulis=0):
@@ -23,7 +24,8 @@ class LinearInversion():
 
         # Read pickle file into dataframe
         if self.explicit==True:
-            self.df1 = pd.read_pickle("datasim_keylist.pkl")
+            with open(r"datasim_keylist.pkl", "rb") as fh:
+                self.df1 = pickle.load(fh)
             # Remove any None values and grab the correct row
             expect_key = list(filter(None, self.df1.values.tolist()[self.nqubits-1]))
             self.expect_key = list(dict.fromkeys(expect_key))

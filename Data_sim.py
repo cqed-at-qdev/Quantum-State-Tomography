@@ -5,11 +5,12 @@ from qutip.qip.operations import snot
 import itertools as it
 from collections import Counter
 import pandas as pd
+import pickle5 as pickle
 class DataSimNqubit():
     """Class that can simulate data for nqubits. 
     """
 
-    def __init__(self, nqubits, shots, prob_amp = [], basis_angles = [np.pi/2, 0, -np.pi/2, 0, np.pi/2, np.pi/2, np.pi/2, -np.pi/2, 0, 0, np.pi, 0], entangle=True, purity=1, verbose=False, explicit=True, had_exp=0, tomo_type='MLE', expect_key=0, total_shot=False):
+    def __init__(self, nqubits, shots, prob_amp = [], prob_angles = [], basis_angles = [np.pi/2, 0, -np.pi/2, 0, np.pi/2, np.pi/2, np.pi/2, -np.pi/2, 0, 0, np.pi, 0], entangle=True, purity=1, verbose=False, explicit=True, had_exp=0, tomo_type='MLE', expect_key=0, total_shot=False):
         """Inititialize the DataSimNqubit class. 
         Input the number of qubits to simulate and the number of shots which need to be simulated
         for each measuring basis.
@@ -39,7 +40,13 @@ class DataSimNqubit():
             self.epsilon = 1 - np.sqrt(1-((1-purity)/(1-(1/self.dims))))
         # Initialize random qubits
         if len(prob_amp) == 0:
-            self.qubit = self.init_rand_nqubits()
+            if len(prob_angles)==0:
+                self.qubit = self.init_rand_nqubits()
+            else:
+                self.prob_amp = 0
+                self.prob_angles = prob_angles
+                self.qubit = self.init_nqubits()
+        
         # Initialize given qubits
         if len(prob_amp) == 2*nqubits:
             self.prob_amp = prob_amp
@@ -54,7 +61,8 @@ class DataSimNqubit():
             print('------------------------------------------')
         # Read the correct inverted Hadamard matrix
         if self.explicit==True:
-            self.df = pd.read_pickle("Inverted_hadamards.pkl")
+            with open(r"Inverted_hadamards.pkl", "rb") as fh:
+                self.df = pickle.load(fh)
             if self.nqubits <= len(self.df[0]):
                 self.hadamard = self.df[0][self.nqubits-1]
             else:
@@ -66,7 +74,8 @@ class DataSimNqubit():
         
         # Read in the correct set of keys for the expectations values for n qubits
         if self.explicit==True:
-            self.df1 = pd.read_pickle("datasim_keylist.pkl")
+            with open(r"datasim_keylist.pkl", "rb") as fh:
+                self.df1 = pickle.load(fh)
             expect_key = list(filter(None, self.df1.values[self.nqubits-1]))
         else:
             pass
@@ -131,9 +140,15 @@ class DataSimNqubit():
             qubit ([Qobj]): returns the tensor product of all the qubits.
         """
         # Split the amplitude list into sets of two, two for each qubit.
-        amp_set = [self.prob_amp[i * 2:(i + 1) * 2] for i in range((len(self.prob_amp) + 2 - 1) // 2 )] 
-        qubit_list = [(x[0]*basis(2,0)+x[1]*basis(2,1)).unit() for x in amp_set]        
-        qubit = (tensor(qubit_list)).proj()
+        if self.prob_amp == 0:
+            ang_set = [self.prob_angles[i * 2:(i + 1) * 2] for i in range((len(self.prob_angles) + 2 - 1) // 2 )] 
+            qubit_list = [(np.cos(x[1]/2)*basis(2,0)+np.exp(1j*x[0])*np.sin(x[1]/2)*basis(2,1)).unit() for x in ang_set]        
+            qubit = (tensor(qubit_list)).proj()
+            qubit = (1-self.epsilon)*qubit + self.epsilon*(1/self.dims)*qeye([2]*self.nqubits)
+        else:
+            amp_set = [self.prob_amp[i * 2:(i + 1) * 2] for i in range((len(self.prob_amp) + 2 - 1) // 2 )] 
+            qubit_list = [(x[0]*basis(2,0)+x[1]*basis(2,1)).unit() for x in amp_set]        
+            qubit = (tensor(qubit_list)).proj()
         qubit = (1-self.epsilon)*qubit + self.epsilon*(1/self.dims)*qeye([2]*self.nqubits)
         # Calculate purity of qubits
         if self.verbose == True:

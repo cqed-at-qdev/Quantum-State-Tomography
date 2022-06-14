@@ -14,14 +14,16 @@ import settings as s
 s.init()
 import Functions_nqubits as f
 #%%
-State1 = DataSimNqubit(4, 1000)
+Nqubits = 1
+
+State1 = DataSimNqubit(Nqubits, 1000)
 dictionary, data = State1.measure_qubit()
 s.rho_true = State1.get_density()
 del data[0]
 #%%
 print(s.rho_true)
 #%%
-Tomo1 = QStateTomo(data, 4)
+Tomo1 = QStateTomo(data, Nqubits)
 rho1 = Tomo1.getRho()
 #%%
 print(tracedist(s.rho_true,rho1))
